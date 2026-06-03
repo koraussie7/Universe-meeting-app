@@ -69,20 +69,31 @@
 6. **E2E 메시징** — 암호화된 1:1/그룹 채팅
 7. **AI 추천** — 온디바이스 + 서버사이드 추천 엔진
 
+### 결제 모듈 (225 Main 서버 `/opt/onlyfans-service` 재활용)
+기존 NestJS + Stripe + Prisma + PeerTube 연동 모듈:
+- **Stripe 구독**: `POST /api/v1/payments/subscribe/:creatorId`
+- **Stripe 팁**: `POST /api/v1/payments/tip/:creatorId`
+- **Stripe Webhook**: `POST /api/v1/payments/webhook`
+- **구독 관리**: `GET /api/v1/payments/my-subscriptions`, `POST cancel/:id`
+- **접근 제어**: `GET /api/v1/payments/check-access/:videoId`
+- **DB**: User, Creator, Subscription, Post, Tip, Like (Prisma + PostgreSQL)
+
+→ Universe Meeting App은 이 결제 API를 내부 프록시로 호출 (Tailscale)
+
 ### 서비스 아키텍처
 ```
-┌─────────────────────────────────────────────┐
-│              React Frontend                  │
-│  (Meeting UI + Feed + Profile + Streaming)   │
-└──────────────────┬──────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│              React Frontend                         │
+│  (Meeting UI + Feed + Profile + Streaming)          │
+└──────────────────┬──────────────────────────────────┘
                    │ Socket.IO + REST
-┌──────────────────▼──────────────────────────┐
-│           NestJS API Gateway                 │
-│  ┌──────────┬──────────┬──────────────────┐ │
-│  │  Auth    │  Queue   │  Rate Limiter    │ │
-│  │  (JWT)   │  (Bull)  │  (Redis)         │ │
-│  └──────────┴──────────┴──────────────────┘ │
-└──────┬──────────┬──────────┬────────────────┘
+┌──────────────────▼──────────────────────────────────┐
+│           NestJS API Gateway (110 서버)              │
+│  ┌──────────┬──────────┬──────────┬──────────────┐ │
+│  │  Auth    │  Queue   │  Rate    │  Payment     │ │
+│  │  (JWT)   │  (Bull)  │  Limiter │  Proxy ──────┼─┼──► 225 Main:4000
+│  └──────────┴──────────┴──────────┴──────────────┘ │   │  Stripe +
+└──────┬──────────┬──────────┬────────────────────────┘   │  PeerTube
        │          │          │
 ┌──────▼──┐ ┌─────▼────┐ ┌──▼──────────────┐
 │ WebRTC  │ │  RTMP/HLS│ │ ActivityPub     │
@@ -90,7 +101,9 @@
 │  SFU)   │ │  Server) │ │                 │
 └─────────┘ └──────────┘ └─────────────────┘
        │          │          │
-┌──────▼──────────▼──────────▼────────────────┐
-│         PostgreSQL + Redis + S3             │
-└─────────────────────────────────────────────┘
+┌──────▼──────────▼──────────▼────────────────┐   ┌─────────────────────┐
+│         PostgreSQL + Redis + S3 (110)       │   │ 225 Main (결제)      │
+└─────────────────────────────────────────────┘   │ NestJS + Stripe      │
+                                                  │ Port 4000            │
+                                                  └─────────────────────┘
 ```
