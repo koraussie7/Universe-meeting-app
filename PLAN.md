@@ -1,70 +1,147 @@
-# Universe Meeting App — 개발 플랜
+# Universe Meeting App — 엑기스 재구성 플랜
 
-## 1단계: 프로젝트 셋업 (Week 1)
-- [ ] 모노레포 구조 설계 (pnpm workspace)
-- [ ] NestJS 백엔드 스캐폴딩
-- [ ] React 프론트엔드 스캐폴딩 (Vite + Tailwind)
-- [ ] Docker Compose 개발환경 (PostgreSQL, Redis, MinIO)
-- [ ] ESLint + Prettier + Husky 설정
-- [ ] GitHub Actions CI/CD 파이프라인
+## 🔥 7개 소스 중복 제거 & 핵심 추출
 
-## 2단계: 코어 인증 + 유저 (Week 1-2)
-- [ ] JWT 인증 시스템 (NestJS Auth module)
-- [ ] 유저 프로필 CRUD
-- [ ] Redis 세션 관리
-- [ ] Role 기반 접근 제어 (RBAC)
+### 중복 분석
+| 기능 | instagram | MarketX | otter-peer | owncast | pixelfed | loops | not-only-fans |
+|------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| 소셜 피드 | ✅ | - | - | - | ✅ | ✅ | ✅ |
+| 실시간 채팅 | ✅ | - | - | ✅ | - | - | - |
+| WebRTC 화상 | - | - | ✅ | - | - | - | - |
+| 라이브 스트리밍 | - | - | - | ✅ | - | - | - |
+| 숏폼 비디오 | ✅ | - | - | - | - | ✅ | - |
+| 구독/페이월 | - | - | - | - | - | - | ✅ |
+| 결제(Stripe) | - | ✅ | - | - | - | - | - |
+| E2E 암호화 | - | - | ✅ | - | - | - | - |
+| ActivityPub | - | - | - | - | ✅ | - | - |
+| 미디어 트랜스코딩 | - | - | - | ✅ | - | ✅ | - |
 
-## 3단계: 실시간 미팅 (Week 2-3)
-- [ ] WebRTC 시그널링 서버 (Socket.IO)
-- [ ] LiveKit SFU 연동 or 자체 SFU
-- [ ] 1:1 화상 통화
-- [ ] 그룹 미팅 (최대 25인)
-- [ ] 화면 공유
-- [ ] 미팅 링크 생성/참여
+---
 
-## 4단계: 소셜 피드 (Week 3-4)
-- [ ] 포스트 CRUD (텍스트, 이미지, 비디오)
-- [ ] 좋아요, 댓글, 공유 (Socket.IO 실시간)
-- [ ] 팔로우/언팔로우 시스템
-- [ ] Infinite scroll 피드
-- [ ] 이미지 업로드 + S3 저장
+## 🎯 최종 4대 핵심 모듈 (중복 제거)
 
-## 5단계: 라이브 스트리밍 (Week 4-5)
-- [ ] RTMP 수신 서버 (Go or Node.js FFmpeg)
-- [ ] HLS 변환 + 송출
-- [ ] 실시간 채팅 (WebSocket)
-- [ ] 방송 녹화 + VOD 저장
-- [ ] RTMP 키 발급
+### 1. 🎥 Live — 실시간 미팅 + 스트리밍
+- **소스**: otter-peer(WebRTC) + owncast(RTMP/HLS)
+- **선택 이유**: WebRTC는 otter-peer가 P2P로 경량, RTMP/HLS는 owncast가 Go로 검증됨
+- **삭제 사유**: instagram/loops/pixelfed는 이 기능 없음
 
-## 6단계: 숏폼 비디오 (Week 5-6)
-- [ ] FFmpeg 트랜스코딩 파이프라인
-- [ ] 바이럴 추천 알고리즘
-- [ ] 스와이프 숏폼 UI
-- [ ] 비디오 좋아요/댓글
+### 2. 📱 Feed — 소셜 피드 + 숏폼
+- **소스**: instagram-mern(소셜피드) + loops-server(숏폼FFmpeg)
+- **선택 이유**: instagram은 Socket.IO 실시간 피드, loops는 FFmpeg 파이프라인
+- **중복 제거**: pixelfed(피드), not-only-fans(피드), MarketX(없음) → 과감히 삭제
 
-## 7단계: 크리에이터 구독 (Week 6-7)
-- [ ] 구독 티어 시스템
-- [ ] ETH/USDT 결제 연동
-- [ ] 페이월 콘텐츠 게이트
-- [ ] 수익 대시보드
-- [ ] 정산 시스템
+### 3. 💰 Monetize — 구독 + 결제
+- **소스**: not-only-fans(구독모델) + MarketX(Escrow) → **우리 건 225 onlyfans-service로 대체**
+- **선택 이유**: 이미 Stripe+Prisma+PeerTube 연동 완료된 서비스 있음
+- **중복 제거**: not-only-fans의 PHP/ETH 결제, MarketX의 결제 전부 → 225 모듈로 통합
 
-## 8단계: 연합 (Week 7-8)
-- [ ] ActivityPub 프로토콜 구현
-- [ ] Mastodon/Pixelfed와 연동
-- [ ] ActivityPub Inbox/Outbox
-- [ ] WebFinger 지원
+### 4. 🌐 Federate — 연합 프로토콜
+- **소스**: pixelfed(ActivityPub)
+- **선택 이유**: pixelfed는 Mastodon과 호환되는 유일한 ActivityPub 구현체
+- **삭제 사유**: 나머지 6개는 연합 기능 없음
 
-## 9단계: 보안 + 성능 (Week 8-9)
-- [ ] E2E 암호화 메시징
-- [ ] Redis Rate Limiting
-- [ ] Bull Job Queue (이메일, 알림, 트랜스코딩)
-- [ ] AI 사기/스팸 탐지
-- [ ] CDN + 캐싱 최적화
+---
 
-## 10단계: 출시 준비 (Week 9-10)
-- [ ] 셀프 호스트 가이드
-- [ ] Docker 원클릭 배포
-- [ ] 모바일 앱 (React Native)
-- [ ] 문서화 + API 레퍼런스
-- [ ] 로드 테스트
+## 🗑️ 과감히 버리는 것
+
+| 버릴 것 | 이유 |
+|---------|------|
+| **pixelfed 전체 피드/미디어** | instagram-mern + loops로 대체, ActivityPub만 추출 |
+| **MarketX 결제/Escrow** | 225 onlyfans-service가 더 완성도 높음 |
+| **MarketX 사기탐지 AI** | MVP에서 과잉, 나중에 추가 |
+| **not-only-fans PHP 백엔드** | NestJS로 통일, 구독 모델만 개념 차용 |
+| **not-only-fans ETH 결제** | Stripe로 통일 |
+| **owncast 프론트엔드** | React로 통일 |
+| **loops-server 피드 로직** | instagram 피드로 통일, FFmpeg만 추출 |
+| **instagram-mern Redux** | Zustand로 경량화 |
+| **instagram-mern MongoDB** | PostgreSQL로 통일 |
+| **otter-peer Kademlia DHT** | MVP에서 과잉, 중앙 시그널링 서버로 충분 |
+
+---
+
+## 🧬 최종 기술 스택 (통합)
+
+```
+언어/런타임:   TypeScript (전체 통일)
+백엔드:        NestJS monolith → 필요시 MSA
+프론트엔드:    React + Vite + TailwindCSS
+모바일:        React Native (추후)
+DB:            PostgreSQL + Prisma
+캐시/큐:       Redis + Bull
+실시간:        Socket.IO
+화상회의:      WebRTC + LiveKit SFU
+스트리밍:      Go RTMP→HLS 서버 (owncast 경량화)
+미디어:        FFmpeg (loops 파이프라인)
+저장소:        S3 (MinIO)
+연합:          ActivityPub (pixelfed 구현)
+결제:          Stripe (225 onlyfans-service 프록시)
+인증:          JWT + OAuth2
+```
+
+---
+
+## 📋 8주 실행 플랜
+
+### Phase 1: Foundation (Week 1-2)
+```
+모노레포 셋업 ──► NestJS 스캐폴딩 ──► React 스캐폴딩
+                                       │
+PostgreSQL + Redis + MinIO ────────────┘
+       │
+  Auth (JWT) + User CRUD + Prisma 스키마
+```
+
+### Phase 2: Live (Week 3-4)
+```
+WebRTC 시그널링 ──► 1:1 통화 ──► 그룹 통화 (LiveKit SFU)
+                                        │
+RTMP 수신 서버 ──► HLS 변환 ──► 라이브 채팅
+```
+
+### Phase 3: Feed (Week 5-6)
+```
+포스트 CRUD ──► 이미지/비디오 업로드 ──► 좋아요/댓글
+                                            │
+FFmpeg 트랜스코딩 ──► 숏폼 피드 ──► 추천 알고리즘
+```
+
+### Phase 4: Monetize + Federate (Week 7-8)
+```
+225 결제 API 연동 ──► 구독 티어 ──► 페이월
+                                        │
+ActivityPub 구현 ──► Mastodon/Pixelfed 연동 ──► WebFinger
+```
+
+---
+
+## 📁 디렉토리 구조 (예상)
+
+```
+universe-meeting-app/
+├── packages/
+│   ├── api/               # NestJS 백엔드
+│   │   ├── src/
+│   │   │   ├── auth/      # JWT + OAuth2
+│   │   │   ├── users/     # 유저 CRUD
+│   │   │   ├── live/      # WebRTC 시그널링 + RTMP 관리
+│   │   │   ├── feed/      # 포스트 + 피드
+│   │   │   ├── media/     # FFmpeg + S3 업로드
+│   │   │   ├── payment/   # 225 onlyfans-service 프록시
+│   │   │   ├── federation/# ActivityPub
+│   │   │   └── prisma/    # DB 스키마
+│   │   └── package.json
+│   ├── web/               # React 프론트엔드
+│   │   ├── src/
+│   │   │   ├── features/
+│   │   │   │   ├── live/  # 미팅 UI + 스트리밍
+│   │   │   │   ├── feed/  # 피드 + 숏폼
+│   │   │   │   ├── profile/
+│   │   │   │   └── subscribe/
+│   │   │   └── shared/    # 공통 컴포넌트
+│   │   └── package.json
+│   ├── stream-server/     # Go RTMP→HLS (owncast 경량화)
+│   └── shared/            # 공통 타입, 유틸
+├── docker-compose.yml
+├── turbo.json
+└── package.json
+```
