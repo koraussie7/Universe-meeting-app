@@ -1,10 +1,11 @@
-import { useAppStore } from './shared/store/app';
+import { useAppStore, type Tab } from './shared/store/app';
 import BottomNav from './shared/components/BottomNav';
 import ReelsPage from './features/reels/ReelsPage';
 import FeedPage from './features/feed/FeedPage';
 import CreatePage from './features/create/CreatePage';
 import MeetingPage from './features/meeting/MeetingPage';
 import ProfilePage from './features/profile/ProfilePage';
+import SubscribePage from './features/subscribe/SubscribePage';
 
 export default function App() {
   const { activeTab } = useAppStore();
