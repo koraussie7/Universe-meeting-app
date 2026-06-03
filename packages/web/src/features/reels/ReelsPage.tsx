@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FiHeart, FiMessageCircle, FiShare2, FiMusic, FiPlay } from 'react-icons/fi';
+import { useAppStore } from '../../shared/store/app';
 
 interface Reel {
   id: number;
@@ -16,6 +17,7 @@ const GRADIENTS = [
 ];
 
 export default function ReelsPage() {
+  const { setShowOnboarding } = useAppStore();
   const [reels, setReels] = useState<Reel[]>([]);
 
   useEffect(() => {
@@ -42,19 +44,19 @@ export default function ReelsPage() {
 
           {/* Right sidebar */}
           <div className="absolute right-3 bottom-24 flex flex-col items-center gap-6 z-10">
-            <button className="flex flex-col items-center gap-1">
+            <button className="flex flex-col items-center gap-1" onClick={() => setShowOnboarding(true)}>
               <div className="w-10 h-10 rounded-full bg-slate-800/80 flex items-center justify-center">
                 <FiHeart size={22} />
               </div>
               <span className="text-xs font-medium">{formatCount(r._count.likes)}</span>
             </button>
-            <button className="flex flex-col items-center gap-1">
+            <button className="flex flex-col items-center gap-1" onClick={() => setShowOnboarding(true)}>
               <div className="w-10 h-10 rounded-full bg-slate-800/80 flex items-center justify-center">
                 <FiMessageCircle size={22} />
               </div>
               <span className="text-xs">{formatCount(r._count.comments)}</span>
             </button>
-            <button className="flex flex-col items-center gap-1">
+            <button className="flex flex-col items-center gap-1" onClick={() => setShowOnboarding(true)}>
               <div className="w-10 h-10 rounded-full bg-slate-800/80 flex items-center justify-center">
                 <FiShare2 size={22} />
               </div>
@@ -69,7 +71,7 @@ export default function ReelsPage() {
                 {r.author.avatar || r.author.username[0].toUpperCase()}
               </div>
               <span className="font-bold text-sm">@{r.author.username}</span>
-              <button className="bg-indigo-500 text-white text-xs px-3 py-1 rounded-full font-medium">
+              <button className="bg-indigo-500 text-white text-xs px-3 py-1 rounded-full font-medium" onClick={() => setShowOnboarding(true)}>
                 Follow
               </button>
             </div>

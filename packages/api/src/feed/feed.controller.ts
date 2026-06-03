@@ -1,14 +1,23 @@
 import { Controller, Get, Post, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FeedService } from './feed.service';
+import { MastodonService } from './mastodon.service';
 
 @Controller('feed')
 export class FeedController {
-  constructor(private feed: FeedService) {}
+  constructor(
+    private feed: FeedService,
+    private mastodon: MastodonService,
+  ) {}
 
   @Get()
   getFeed(@Query('take') take?: string, @Query('skip') skip?: string) {
     return this.feed.getFeed(Number(take) || 20, Number(skip) || 0);
+  }
+
+  @Get('mastodon')
+  getMastodonFeed(@Query('take') take?: string) {
+    return this.mastodon.getFeed(Number(take) || 20);
   }
 
   @Get('reels')

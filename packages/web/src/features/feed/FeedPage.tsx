@@ -1,14 +1,22 @@
 import { useState, useEffect } from 'react';
 import { FiHeart, FiMessageCircle, FiBookmark, FiMoreHorizontal } from 'react-icons/fi';
+import { useAppStore } from '../../shared/store/app';
 
-interface Post {
-  id: number;
-  caption: string | null;
-  type: string;
-  mediaUrl: string | null;
-  author: { id: number; username: string; avatar: string | null; name: string | null };
-  _count: { likes: number; comments: number };
+interface FeedItem {
+  id: string;
+  content: string;
+  plainText: string;
   createdAt: string;
+  author: {
+    id: string;
+    username: string;
+    displayName: string;
+    avatar: string;
+  };
+  media: Array<{ url: string; previewUrl: string; type: string }>;
+  likes: number;
+  replies: number;
+  tags: string[];
 }
 
 const GRADIENTS = [
@@ -19,22 +27,69 @@ const GRADIENTS = [
   'from-violet-900 via-fuchsia-900 to-purple-900',
 ];
 
+// Mastodon feed — static JSON updated every 5 min by cron
+const FEED_URL = '/feed.json';
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .trim();
+}
+
+function mapStatus(s: any): FeedItem {
+  return {
+    id: s.id,
+    content: s.content || '',
+    plainText: stripHtml(s.content || ''),
+    createdAt: s.created_at,
+    author: {
+      id: s.account?.id || '',
+      username: s.account?.username || 'unknown',
+      displayName: s.account?.display_name || s.account?.username || 'Unknown',
+      avatar: s.account?.avatar || '',
+    },
+    media: (s.media || []).map((m: any) => ({
+      url: m.url || '',
+      previewUrl: m.preview_url || '',
+      type: m.type || 'image',
+    })),
+    likes: s.likes || 0,
+    replies: s.replies || 0,
+    tags: (s.tags || []).map((t: any) => t.name),
+  };
+}
+
 export default function FeedPage() {
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [posts, setPosts] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const { setShowOnboarding } = useAppStore();
 
   useEffect(() => {
-    fetch('/api/v1/feed?take=20')
-      .then(r => r.json())
-      .then(data => { setPosts(data); setLoading(false); })
-      .catch(() => setLoading(false));
+    // Fetch static feed JSON (updated by cron every 5 min)
+    // cache-bust to avoid stale browser/CDN cache
+    fetch(`${FEED_URL}?_=${Date.now()}`)
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then(data => {
+        if (data.posts && Array.isArray(data.posts) && data.posts.length > 0) {
+          setPosts(data.posts.map(mapStatus));
+        }
+      })
+      .catch(() => {
+        console.log('Feed unavailable');
+      })
+      .finally(() => setLoading(false));
   }, []);
 
-  const toggleLike = async (postId: number) => {
-    try {
-      await fetch('/api/v1/feed/' + postId + '/like', { method: 'POST' });
-    } catch { /* JWT required in prod */ }
-  };
+  const handleInteraction = () => setShowOnboarding(true);
 
   if (loading) {
     return (
@@ -66,7 +121,7 @@ export default function FeedPage() {
         <div className="text-center py-20 text-slate-400">
           <p className="text-4xl mb-4">📭</p>
           <p className="font-medium">No posts yet</p>
-          <p className="text-sm mt-1">Be the first to share!</p>
+          <p className="text-sm mt-1">Feed connecting to Mastodon...</p>
         </div>
       ) : (
         <div className="space-y-4 mt-2">
@@ -74,56 +129,86 @@ export default function FeedPage() {
             <article key={post.id} className="border-b border-slate-800 pb-4">
               {/* Header */}
               <div className="flex items-center gap-3 px-4 mb-3">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-sm font-bold">
-                  {post.author.avatar || post.author.username[0].toUpperCase()}
+                {post.author.avatar ? (
+                  <img
+                    src={post.author.avatar}
+                    alt={post.author.username}
+                    className="w-8 h-8 rounded-full object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-sm font-bold">
+                    {post.author.username[0].toUpperCase()}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm truncate">{post.author.displayName}</p>
+                  <p className="text-xs text-slate-500">@{post.author.username}</p>
                 </div>
-                <span className="font-semibold text-sm flex-1">{post.author.username}</span>
-                <span className="text-[10px] text-slate-500">{post.type.toUpperCase()}</span>
-                <button>
-                  <FiMoreHorizontal size={18} className="text-slate-400" />
-                </button>
+                <span className="text-[10px] text-slate-600 bg-slate-800 px-2 py-0.5 rounded-full">
+                  Mastodon
+                </span>
               </div>
 
-              {/* Media placeholder */}
-              <div className={'aspect-square bg-gradient-to-br ' + (GRADIENTS[i % GRADIENTS.length]) + ' flex items-center justify-center mb-3'}>
-                <span className="text-6xl opacity-20">{post.type === 'reel' ? '🎬' : '📷'}</span>
+              {/* Content */}
+              <div className="px-4 mb-3">
+                <p className="text-sm text-slate-200 whitespace-pre-wrap leading-relaxed line-clamp-6">
+                  {post.plainText}
+                </p>
+                {post.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {post.tags.map(tag => (
+                      <span key={tag} className="text-[11px] text-indigo-400">#{tag}</span>
+                    ))}
+                  </div>
+                )}
               </div>
+
+              {/* Media */}
+              {post.media.length > 0 && (
+                <div className="px-4 mb-3">
+                  {post.media[0].type === 'image' ? (
+                    <img
+                      src={post.media[0].url}
+                      alt=""
+                      className="w-full rounded-xl object-cover max-h-96"
+                      loading="lazy"
+                    />
+                  ) : post.media[0].type === 'video' || post.media[0].type === 'gifv' ? (
+                    <video
+                      src={post.media[0].url}
+                      controls
+                      className="w-full rounded-xl max-h-96"
+                      preload="metadata"
+                    />
+                  ) : (
+                    <div className={'aspect-video bg-gradient-to-br ' + (GRADIENTS[i % GRADIENTS.length]) + ' rounded-xl flex items-center justify-center'}>
+                      <span className="text-4xl opacity-20">📎</span>
+                    </div>
+                  )}
+                  {post.media.length > 1 && (
+                    <p className="text-xs text-slate-500 mt-1">+{post.media.length - 1} more</p>
+                  )}
+                </div>
+              )}
 
               {/* Actions */}
               <div className="flex items-center gap-4 px-4 mb-2">
-                <button onClick={() => toggleLike(post.id)}>
-                  <FiHeart size={24} />
+                <button onClick={handleInteraction} className="flex items-center gap-1">
+                  <FiHeart size={20} />
+                  <span className="text-xs">{formatCount(post.likes)}</span>
                 </button>
-                <button>
-                  <FiMessageCircle size={24} />
+                <button onClick={handleInteraction} className="flex items-center gap-1">
+                  <FiMessageCircle size={20} />
+                  <span className="text-xs">{formatCount(post.replies)}</span>
                 </button>
-                <button className="ml-auto">
-                  <FiBookmark size={24} />
+                <button className="ml-auto" onClick={handleInteraction}>
+                  <FiBookmark size={20} />
                 </button>
               </div>
 
-              {/* Likes */}
-              <p className="px-4 font-semibold text-sm mb-1">
-                {formatCount(post._count.likes)} likes
-              </p>
-
-              {/* Caption */}
-              {post.caption && (
-                <div className="px-4 text-sm">
-                  <span className="font-semibold mr-1">{post.author.username}</span>
-                  {post.caption}
-                </div>
-              )}
-
-              {/* Comments link */}
-              {post._count.comments > 0 && (
-                <p className="px-4 text-sm text-slate-400 mt-1">
-                  View all {post._count.comments} comments
-                </p>
-              )}
-
               {/* Time */}
-              <p className="px-4 text-[11px] text-slate-500 mt-1 uppercase">
+              <p className="px-4 text-[11px] text-slate-500 uppercase">
                 {timeAgo(post.createdAt)}
               </p>
             </article>

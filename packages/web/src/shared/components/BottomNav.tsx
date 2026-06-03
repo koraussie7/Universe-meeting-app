@@ -1,32 +1,39 @@
-import { useAppStore, type Tab } from '../store/app';
-import { 
-  FiVideo, FiHome, FiPlusSquare, FiCamera, FiUser 
-} from 'react-icons/fi';
+import { useAppStore, type Page } from '../store/app';
+import { FiHome, FiPlay, FiPlusSquare, FiUsers, FiUser } from 'react-icons/fi';
 
-const tabs: { key: Tab; icon: typeof FiVideo; label: string }[] = [
-  { key: 'reels',   icon: FiVideo,      label: 'Reels' },
-  { key: 'feed',    icon: FiHome,       label: 'Feed' },
-  { key: 'create',  icon: FiPlusSquare, label: 'Create' },
-  { key: 'meeting', icon: FiCamera,     label: 'Live' },
-  { key: 'profile', icon: FiUser,       label: 'Profile' },
+const tabs: { key: Page; icon: typeof FiHome; label: string }[] = [
+  { key: 'home',          icon: FiHome,       label: 'Home' },
+  { key: 'shorts',        icon: FiPlay,       label: 'Shorts' },
+  { key: 'create',        icon: FiPlusSquare, label: '' },
+  { key: 'subscriptions', icon: FiUsers,      label: 'Subs' },
+  { key: 'profile',       icon: FiUser,       label: 'You' },
 ];
 
 export default function BottomNav() {
-  const { activeTab, setTab } = useAppStore();
+  const { activePage, setPage } = useAppStore();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-black/95 backdrop-blur border-t border-slate-800 z-50">
-      <div className="flex justify-around items-center h-16 max-w-lg mx-auto">
+    <nav className="fixed bottom-0 left-0 right-0 bg-[#0f0f0f] border-t border-white/10 z-50 lg:hidden">
+      <div className="flex justify-around items-center h-14">
         {tabs.map(({ key, icon: Icon, label }) => (
           <button
             key={key}
-            onClick={() => setTab(key)}
-            className="flex flex-col items-center gap-0.5 px-4 py-1"
+            onClick={() => setPage(key)}
+            className={`flex flex-col items-center justify-center gap-0.5 px-2 py-1 min-w-[48px]
+              ${key === 'create' ? 'relative' : ''}`}
           >
-            <Icon size={24} className={activeTab === key ? 'text-indigo-400' : 'text-slate-500'} />
-            <span className={'text-[10px] font-medium ' + (activeTab === key ? 'text-indigo-400' : 'text-slate-500')}>
-              {label}
-            </span>
+            {key === 'create' ? (
+              <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center -mt-1">
+                <Icon size={20} className="text-black" />
+              </div>
+            ) : (
+              <Icon size={20} className={activePage === key ? 'text-white' : 'text-gray-400'} />
+            )}
+            {label && (
+              <span className={`text-[10px] ${activePage === key ? 'text-white' : 'text-gray-400'}`}>
+                {label}
+              </span>
+            )}
           </button>
         ))}
       </div>
